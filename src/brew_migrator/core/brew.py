@@ -1,5 +1,5 @@
 import subprocess
-from ..ui.console import retro_print, RED
+from ..ui.console import retro_print, RED, ProgressBar
 
 
 def find_matches(app_name, search_type):
@@ -10,7 +10,9 @@ def find_matches(app_name, search_type):
             if search_type == "cask"
             else ["brew", "search", app_name]
         )
-        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        with ProgressBar():
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
         return [
             match.strip()
             for match in result.stdout.decode("utf-8").strip().split("\n")
@@ -55,12 +57,13 @@ def install_homebrew_package(package_name, is_cask, app_name, history_manager, d
         return True
 
     try:
-        subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=True,
-        )
+        with ProgressBar(f"INSTALLING {package_name}"):
+            subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
         history_manager.update(app_name, "migrated", package_name)
         return True
 
