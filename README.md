@@ -25,6 +25,9 @@ This generates a `Brewfile` (like [this example](examples/example_brewfile.rb)).
 ## Features
 
 - **Retro UI**: A terminal-based interface that feels like an old-school computer system.
+- **Progress Bar**: Visual feedback during Homebrew operations with a custom pulsing activity bar.
+- **App Ignoring**: Permanently exclude system apps or non-caskable software from future scans.
+- **Multi-Column Layout**: High-density grid-style listing for auditing large application histories.
 - **Intelligent Search**: Automatically finds the correct Homebrew Cask for your installed apps.
 - **Dry Run Mode**: Safe simulation mode to see what would happen without making any changes.
 - **Migration History**: Remembers what you've already migrated, skipped, or failed.
@@ -68,9 +71,13 @@ brew-migrator [OPTIONS]
 
 - `--dry-run`: **(Highly Recommended)** Simulate the migration without making any changes.
 - `--list-apps`: List all applications found in your `/Applications` folder.
+- `--list-installed`: List all applications successfully migrated to Homebrew.
+- `--list-skipped`: List all applications currently in the skipped history.
+- `--list-ignored`: List all applications explicitly marked as ignored.
 - `--app "AppName"`: Process a specific application by name.
 - `--batch`: Run in batch mode (automatically install the top match).
 - `--retry-skipped`: Retry apps that were previously skipped.
+- `--retry-ignored`: Re-process apps that were previously marked as ignored.
 - `--reset-history`: Clear the migration history file.
 
 ### Examples
