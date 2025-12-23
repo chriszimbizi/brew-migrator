@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "brew-migrator"
-version = "0.0.1"
+version = "0.0.2"
 description = "Migrate applications from /Applications to Homebrew Casks"
 readme = "README.md"
 requires-python = ">=3.8"
