@@ -5,7 +5,7 @@ import argparse
 from .ui.console import (
     TITLE_ART, type_text, retro_input, retro_print,
     press_enter_to_continue, display_paginated_matches,
-    GREEN, CYAN, YELLOW, RED, RESET, PAGE_SIZE
+    display_retro_list, GREEN, CYAN, YELLOW, RED, RESET, PAGE_SIZE
 )
 from .core.history import HistoryManager, HISTORY_PATH
 from .core.brew import (
@@ -100,6 +100,11 @@ def process_app(app_name, history_manager, batch_mode=False, dry_run=False):
             history_manager.update(app_name, "skipped", "user_skipped")
             time.sleep(0.5)
             return
+        elif choice == "I":
+            retro_print("IGNORED", RED)
+            history_manager.update(app_name, "ignored", "user_ignored")
+            time.sleep(0.5)
+            return
         elif choice == "Q":
             retro_print("QUITTING...", RED)
             sys.exit(0)
@@ -135,17 +140,41 @@ def main():
         help="Retry apps previously skipped due to no cask found.",
     )
     parser.add_argument(
+        "--retry-ignored",
+        action="store_true",
+        help="Retry apps previously marked as ignored.",
+    )
+    parser.add_argument(
+        "--list-skipped",
+        action="store_true",
+        help="List apps currently in the skipped history.",
+    )
+    parser.add_argument(
+        "--list-ignored",
+        action="store_true",
+        help="List apps currently in the ignored history.",
+    )
+    parser.add_argument(
+        "--list-installed",
+        action="store_true",
+        help="List all apps successfully migrated to Homebrew.",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Simulate the migration without performing any destructive actions.",
     )
     args = parser.parse_args()
 
-    # Initial screen setup
-    from .ui.console import clear_screen
-    clear_screen()
-    print(CYAN + TITLE_ART + RESET)
-    type_text("INITIALIZING HOMEBREW APP MIGRATOR...\n")
+    # Detect listing commands to skip intro
+    listing_requested = any([args.list_apps, args.list_skipped, args.list_ignored, getattr(args, 'list_installed', False)])
+
+    if not listing_requested:
+        # Initial screen setup
+        from .ui.console import clear_screen
+        clear_screen()
+        print(CYAN + TITLE_ART + RESET)
+        type_text("INITIALIZING HOMEBREW APP MIGRATOR...\n")
 
     history_manager = HistoryManager(HISTORY_PATH)
 
@@ -160,7 +189,8 @@ def main():
         retro_print("ERROR: HOMEBREW NOT FOUND. ABORT MISSION.", RED)
         return
 
-    type_text(f"Loaded migration history with {len(history_manager.history)} entries\n")
+    if not listing_requested:
+        type_text(f"Loaded migration history with {len(history_manager.history)} entries\n")
 
     if not os.path.exists(APPLICATIONS_FOLDER):
         retro_print(f"ERROR: {APPLICATIONS_FOLDER} NOT FOUND.", RED)
@@ -175,9 +205,22 @@ def main():
     )
 
     if args.list_apps:
-        retro_print("Applications found in /Applications:", CYAN)
-        for app in app_names:
-            retro_print(f"  - {app}")
+        display_retro_list("Applications in /Applications", app_names, CYAN)
+        return
+
+    if args.list_skipped:
+        skipped_apps = history_manager.get_skipped()
+        display_retro_list("Applications in SKIPPED history", skipped_apps, YELLOW)
+        return
+
+    if args.list_ignored:
+        ignored_apps = history_manager.get_ignored()
+        display_retro_list("Applications in IGNORED history", ignored_apps, RED)
+        return
+
+    if args.list_installed:
+        installed_apps = history_manager.get_installed()
+        display_retro_list("Successfully Migrated Applications", installed_apps, GREEN)
         return
 
     apps_to_process = []
@@ -190,9 +233,14 @@ def main():
         entry = history_manager.get(app_name)
         if entry:
             status = entry.get("status")
-            if status.startswith("migrated") and not args.retry_skipped:
+            # Migrated is a permanent lock
+            if status.startswith("migrated"):
                 continue
+
+            # Others depend on flags
             if status == "skipped" and not args.retry_skipped:
+                continue
+            if status == "ignored" and not args.retry_ignored:
                 continue
 
         apps_to_process.append(app_name)
@@ -210,7 +258,7 @@ def main():
         retro_print("\n" + "=" * 50, YELLOW)
         type_text("MIGRATION SESSION ENDED. GENERATING REPORT...")
 
-        newly_migrated, failed, skipped = history_manager.get_summary(initial_state_history)
+        newly_migrated, failed, skipped, ignored = history_manager.get_summary(initial_state_history)
 
         retro_print("\nNEWLY MIGRATED APPLICATIONS:", GREEN)
         for entry in newly_migrated:
@@ -224,6 +272,11 @@ def main():
         if skipped:
             retro_print("\nSKIPPED APPLICATIONS:", YELLOW)
             for entry in skipped:
+                retro_print(f"  - {entry}")
+
+        if ignored:
+            retro_print("\nNEWLY IGNORED APPLICATIONS:", RED)
+            for entry in ignored:
                 retro_print(f"  - {entry}")
 
         retro_print("\nHistory file updated. Goodbye.", CYAN)

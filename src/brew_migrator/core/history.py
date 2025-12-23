@@ -59,17 +59,30 @@ class HistoryManager:
             return True
         return False
 
+    def get_ignored(self):
+        """Return a list of apps marked as ignored."""
+        return [app for app, data in self.history.items() if data.get("status") == "ignored"]
+
+    def get_skipped(self):
+        """Return a list of apps marked as skipped."""
+        return [app for app, data in self.history.items() if data.get("status") == "skipped"]
+
+    def get_installed(self):
+        """Return a list of apps marked as migrated."""
+        return [app for app, data in self.history.items() if data.get("status", "").startswith("migrated")]
+
     def get_summary(self, initial_state_history=None):
         """Return counts for the final report."""
         newly_migrated = []
         failed = []
         skipped = []
+        ignored = []
 
         for app, data in self.history.items():
             status = data.get("status", "")
             detail = data.get("detail", "")
 
-            # Check if it was newly migrated in this session
+            # Check if it was newly updated in this session
             is_new = True
             if initial_state_history and app in initial_state_history:
                 initial_status = initial_state_history[app].get("status", "")
@@ -82,8 +95,10 @@ class HistoryManager:
                 failed.append(f"{app}: {detail}")
             elif status == "skipped" and is_new:
                 skipped.append(f"{app}: {detail}")
+            elif status == "ignored" and is_new:
+                ignored.append(app)
 
-        return newly_migrated, failed, skipped
+        return newly_migrated, failed, skipped, ignored
 
     def copy_history(self):
         """Return a deep copy of the current history dictionary."""
