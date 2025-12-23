@@ -1,92 +1,121 @@
 # Homebrew App Migrator
 
-A utility tool that helps migrate macOS applications to be managed by Homebrew Casks, simplifying application management and updates.
+[![PyPI version](https://img.shields.io/pypi/v/brew-migrator.svg)](https://pypi.org/project/brew-migrator/)
+[![Python versions](https://img.shields.io/pypi/pyversions/brew-migrator.svg)](https://pypi.org/project/brew-migrator/)
+[![License](https://img.shields.io/github/license/chriszimbizi/brew-migrator.svg)](https://github.com/chriszimbizi/brew-migrator/blob/main/LICENSE)
 
-## Inspiration
+A retro-styled CLI tool to migrate manually installed macOS applications from `/Applications` to Homebrew Casks.
 
-This project was inspired by the challenge of managing applications from multiple sources (App Store, direct downloads, etc.). Having Homebrew manage applications offers significant advantages:
+## Why this tool?
 
-- **Centralized Updates**: Update all applications with a single `brew upgrade` command
-- **Consistent Management**: One tool to install, update, and remove applications
-- **Version Control**: Track what's installed across systems
-- **Automation**: Generate a Brewfile using `brew bundle dump` that can be used to quickly set up new development machines with identical software
+If you've ever bought a new Mac and spent hours manually downloading `.dmg` files, dragging them to `/Applications`, and trying to remember everything you had installed, this tool is for you.
 
-## Features
+**Homebrew** is the gold standard for managing software on macOS, but it only works if your apps are installed as "Casks." Most people have a mix of apps they downloaded from websites and apps installed via Homebrew.
 
-- Scans your /Applications folder to find installed applications
-- Searches for matching Homebrew casks
-- Interactive selection interface with pagination
-- Tracks migration progress with detailed history
-- Provides reports on successfully migrated, failed, and skipped applications
+### The Power of the Brewfile
 
-## Prerequisites
-
-- Python 3.6+
-- Homebrew installed on your macOS system
-
-## Installation
-
-```shell
-# Clone the repository
-git clone https://github.com/chriszimbizi/homebrew-app-migrator.git
-cd homebrew-app-migrator
-
-# Make the script executable
-chmod +x brew_migrator.py
-```
-
-## Usage
-
-### Basic Usage
-
-```shell
-./brew_migrator.py
-```
-
-This will scan your /Applications folder and guide you through migrating each application to Homebrew casks.
-
-### Command-line Options
-
-- `--list-apps`: List all applications found in /Applications
-- `--app [APP_NAME]`: Process a specific application by name
-- `--reset-history`: Clear the migration history file
-- `--batch`: Run in batch mode, automatically install top match
-- `--retry-skipped`: Retry apps previously skipped
-
-### Examples
-
-```shell
-# List all applications in /Applications
-./brew_migrator.py --list-apps
-
-# Migrate a specific application
-./brew_migrator.py --app "Firefox"
-
-# Clear migration history
-./brew_migrator.py --reset-history
-```
-
-## Creating and Using a Brewfile
-
-After migrating your applications, create a Brewfile to capture your environment:
+Once your apps are migrated to Homebrew Casks using this tool, you can run:
 
 ```bash
 brew bundle dump
 ```
 
-This generates a Brewfile containing all your Homebrew-managed packages, casks, and taps.
+This generates a `Brewfile` (like [this example](examples/example_brewfile.rb)). This single file is like a "save game" for your entire Mac setup. On a new machine, you just run `brew bundle` and **every single app** is automatically installed for you in minutes.
 
-### Setting Up a New Machine
+## Features
 
-1. Install Homebrew on the new device
-2. Copy your Brewfile to the new machine
-3. Run `brew bundle`
+- **Retro UI**: A terminal-based interface that feels like an old-school computer system.
+- **Intelligent Search**: Automatically finds the correct Homebrew Cask for your installed apps.
+- **Dry Run Mode**: Safe simulation mode to see what would happen without making any changes.
+- **Migration History**: Remembers what you've already migrated, skipped, or failed.
+- **Batch Mode**: Quick-install the best matches for all your apps at once.
+- **Paginated Results**: Easily browse through multiple search results.
 
-This will install all applications and packages listed in your Brewfile, effectively replicating your setup.
+## Installation
 
-## Migration History
+### Via PyPI (Recommended)
 
-The script maintains a history file at `~/.brew_migrator_history` tracking your migration progress.
+Install the latest stable version directly from PyPI:
+
+```bash
+pip install brew-migrator
+```
+
+### From Source (Development)
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/chriszimbizi/brew-migrator.git
+   cd brew-migrator
+   ```
+
+2. Install in editable mode:
+
+   ```bash
+   pip install -e .
+   ```
+
+## Usage
+
+After installation, you can run the tool using the `brew-migrator` command:
+
+```bash
+brew-migrator [OPTIONS]
+```
+
+### Options
+
+- `--dry-run`: **(Highly Recommended)** Simulate the migration without making any changes.
+- `--list-apps`: List all applications found in your `/Applications` folder.
+- `--app "AppName"`: Process a specific application by name.
+- `--batch`: Run in batch mode (automatically install the top match).
+- `--retry-skipped`: Retry apps that were previously skipped.
+- `--reset-history`: Clear the migration history file.
+
+### Examples
+
+**Safe Simulation:**
+
+```bash
+brew-migrator --dry-run
+```
+
+**List all apps:**
+
+```bash
+brew-migrator --list-apps
+```
+
+**Run in batch mode:**
+
+```bash
+brew-migrator --batch
+```
+
+## How it Works
+
+1. **Scan**: The tool looks at everything in your `/Applications` folder.
+2. **Search**: It asks Homebrew if there's a corresponding "Cask" for each app.
+3. **Selection**: You choose the correct match from a list (or let Batch Mode handle it).
+4. **Log**: The tool records the migration in a JSON history file to prevent double-work.
+
+## Project Structure
+
+```text
+.
+├── LICENSE
+├── README.md
+├── pyproject.toml
+└── src
+    └── brew_migrator
+        ├── cli.py
+        ├── core
+        │   ├── brew.py
+        │   └── history.py
+        └── ui
+            └── console.py
+```
 
 ## Contributing
 
@@ -94,4 +123,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
