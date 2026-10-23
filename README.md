@@ -38,10 +38,20 @@ This generates a `Brewfile` (like [this example](examples/example_brewfile.rb)).
 
 ### Via PyPI (Recommended)
 
-Install the latest stable version directly from PyPI:
+Install the latest stable version from PyPI with [pipx](https://pipx.pypa.io) or [uv](https://docs.astral.sh/uv/):
 
 ```bash
-pip install brew-migrator
+pipx install brew-migrator
+# or
+uv tool install brew-migrator
+```
+
+To upgrade later:
+
+```bash
+pipx upgrade brew-migrator
+# or
+uv tool upgrade brew-migrator
 ```
 
 ### From Source (Development)
@@ -53,9 +63,11 @@ pip install brew-migrator
    cd brew-migrator
    ```
 
-2. Install in editable mode:
+2. Create a virtual environment and install in editable mode:
 
    ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
    pip install -e .
    ```
 
