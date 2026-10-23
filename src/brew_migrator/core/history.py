@@ -9,8 +9,10 @@ HISTORY_PATH = os.path.expanduser("~/.brew_migrator_history")
 
 
 class HistoryManager:
-    def __init__(self, filepath=HISTORY_PATH):
+    def __init__(self, filepath=HISTORY_PATH, persist=True):
         self.filepath = filepath
+        # With persist=False (dry runs), updates stay in memory and never touch the file
+        self.persist = persist
         self.history = self._load()
 
     def _load(self):
@@ -43,6 +45,8 @@ class HistoryManager:
 
     def _save(self):
         """Atomic save: write to temp file, then rename."""
+        if not self.persist:
+            return
         temp_path = self.filepath + ".tmp"
         try:
             with open(temp_path, "w") as f:
@@ -69,7 +73,11 @@ class HistoryManager:
 
     def get_installed(self):
         """Return a list of apps marked as migrated."""
-        return [app for app, data in self.history.items() if data.get("status", "").startswith("migrated")]
+        return [app for app, data in self.history.items() if data.get("status") == "migrated"]
+
+    def is_migrated(self, app_name):
+        """True only for real migrations; legacy "migrated (dry-run)" entries don't count."""
+        return self.get(app_name).get("status") == "migrated"
 
     def get_summary(self, initial_state_history=None):
         """Return counts for the final report."""

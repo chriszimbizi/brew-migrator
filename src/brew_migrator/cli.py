@@ -3,33 +3,49 @@ import sys
 import time
 import argparse
 from .ui.console import (
-    TITLE_ART, type_text, retro_input, retro_print,
+    TITLE_ART, type_text, retro_input, retro_print, clear_screen,
     press_enter_to_continue, display_paginated_matches,
     display_retro_list, GREEN, CYAN, YELLOW, RED, RESET, PAGE_SIZE
 )
 from .core.history import HistoryManager, HISTORY_PATH
 from .core.brew import (
-    find_matches, is_already_installed, install_homebrew_package, check_brew_installed,
-    get_installed_cask_apps
+    find_matches, exact_match, list_all_casks, is_already_installed,
+    install_homebrew_package, check_brew_installed, get_installed_cask_apps
 )
 
-APPLICATIONS_FOLDER = "/Applications"
+SYSTEM_APPLICATIONS_FOLDER = "/Applications"
+USER_APPLICATIONS_FOLDER = os.path.expanduser("~/Applications")
+APPLICATIONS_FOLDERS = [SYSTEM_APPLICATIONS_FOLDER, USER_APPLICATIONS_FOLDER]
 
 
-def process_app(app_name, history_manager, batch_mode=False, dry_run=False):
+def scan_applications(folders=APPLICATIONS_FOLDERS):
+    """Return {app_name: folder} for every .app found; earlier folders win on duplicates."""
+    apps = {}
+    for folder in folders:
+        if not os.path.isdir(folder):
+            continue
+        for entry in os.listdir(folder):
+            if entry.endswith(".app"):
+                apps.setdefault(os.path.splitext(entry)[0], folder)
+    return apps
+
+
+def process_app(app_name, history_manager, cask_tokens=None, app_dir=None, batch_mode=False, dry_run=False):
     """Process a single application with one screen per app UI."""
+    # Install user-folder apps back into ~/Applications rather than /Applications
+    appdir = app_dir if app_dir and app_dir != SYSTEM_APPLICATIONS_FOLDER else None
+
     # For batch mode, we don't clear the screen to maintain a log of progress
     if batch_mode:
         retro_print(f"\nSCANNING: {app_name}", YELLOW)
     else:
         # In interactive mode, we clear BEFORE showing the "SCANNING" message
         # so that each app starts with its own header at the top of the screen.
-        from .ui.console import clear_screen
         clear_screen()
         print(CYAN + TITLE_ART + RESET)
         retro_print(f"SCANNING: {app_name}...", YELLOW)
 
-    cask_matches = find_matches(app_name, "cask")
+    cask_matches = find_matches(app_name, cask_tokens)
 
     if not cask_matches:
         retro_print(f"NO MATCHES FOUND FOR {app_name}. SKIPPING...", YELLOW)
@@ -38,15 +54,22 @@ def process_app(app_name, history_manager, batch_mode=False, dry_run=False):
         return
 
     if batch_mode:
-        selected_cask = cask_matches[0]
-        type_text(f"BATCH MODE: Installing top match '{selected_cask}'...")
+        # Only auto-install when the cask token is exactly the app's name;
+        # anything fuzzier is left for interactive review via --retry-skipped
+        selected_cask = exact_match(app_name, cask_matches)
+        if not selected_cask:
+            retro_print(f"NO EXACT MATCH FOR {app_name}. SKIPPING (REVIEW WITH --retry-skipped)", YELLOW)
+            history_manager.update(app_name, "skipped", "no_exact_match")
+            return
+
+        type_text(f"BATCH MODE: Installing exact match '{selected_cask}'...")
 
         if is_already_installed(selected_cask, True):
             retro_print(f"ALREADY INSTALLED: {selected_cask}", GREEN)
             history_manager.update(app_name, "migrated", selected_cask)
             return
 
-        if install_homebrew_package(selected_cask, True, app_name, history_manager, dry_run=dry_run):
+        if install_homebrew_package(selected_cask, True, app_name, history_manager, dry_run=dry_run, appdir=appdir):
             if dry_run:
                 retro_print("DRY RUN: Skip actual install", YELLOW)
             else:
@@ -59,7 +82,6 @@ def process_app(app_name, history_manager, batch_mode=False, dry_run=False):
     start_idx = 0
 
     while True:
-        from .ui.console import clear_screen
         clear_screen()
         print(CYAN + TITLE_ART + RESET)
         retro_print(f"Processing: {app_name}", CYAN)
@@ -81,7 +103,7 @@ def process_app(app_name, history_manager, batch_mode=False, dry_run=False):
                 retro_print(f"WARNING: This will force install '{selected_cask}'", YELLOW)
                 type_text(f"ATTEMPTING TO INSTALL: {selected_cask}")
 
-                if install_homebrew_package(selected_cask, True, app_name, history_manager, dry_run=dry_run):
+                if install_homebrew_package(selected_cask, True, app_name, history_manager, dry_run=dry_run, appdir=appdir):
                     if dry_run:
                         retro_print("DRY RUN: Skip actual install", YELLOW)
                     else:
@@ -122,7 +144,7 @@ def main():
     parser.add_argument(
         "--list-apps",
         action="store_true",
-        help="List all applications found in /Applications.",
+        help="List all applications found in /Applications and ~/Applications.",
     )
     parser.add_argument(
         "--list-pending",
@@ -138,7 +160,7 @@ def main():
     parser.add_argument(
         "--batch",
         action="store_true",
-        help="Run in batch mode, automatically install top match.",
+        help="Run in batch mode, automatically install exact cask matches.",
     )
     parser.add_argument(
         "--retry-skipped",
@@ -177,12 +199,13 @@ def main():
 
     if not listing_requested:
         # Initial screen setup
-        from .ui.console import clear_screen
         clear_screen()
         print(CYAN + TITLE_ART + RESET)
         type_text("INITIALIZING HOMEBREW APP MIGRATOR...\n")
+        if args.dry_run:
+            retro_print("DRY RUN: Nothing will be installed and history will not be saved.\n", YELLOW)
 
-    history_manager = HistoryManager(HISTORY_PATH)
+    history_manager = HistoryManager(HISTORY_PATH, persist=not args.dry_run)
 
     if args.reset_history:
         if history_manager.clear():
@@ -198,20 +221,18 @@ def main():
     if not listing_requested:
         type_text(f"Loaded migration history with {len(history_manager.history)} entries\n")
 
-    if not os.path.exists(APPLICATIONS_FOLDER):
-        retro_print(f"ERROR: {APPLICATIONS_FOLDER} NOT FOUND.", RED)
+    app_dirs = scan_applications()
+    if not app_dirs:
+        retro_print(f"ERROR: NO APPLICATIONS FOUND IN {' OR '.join(APPLICATIONS_FOLDERS)}.", RED)
         return
-
-    app_names = sorted(
-        [
-            os.path.splitext(app)[0]
-            for app in os.listdir(APPLICATIONS_FOLDER)
-            if app.endswith(".app")
-        ]
-    )
+    app_names = sorted(app_dirs)
 
     if args.list_apps:
-        display_retro_list("Applications in /Applications", app_names, CYAN)
+        display_retro_list("Applications found", app_names, CYAN)
+        return
+
+    if args.app and args.app not in app_dirs:
+        retro_print(f"ERROR: '{args.app}' NOT FOUND. RUN --list-apps TO SEE EXACT NAMES.", RED)
         return
 
     # Apps already installed via a cask need no migration, whether or not this tool did it
@@ -255,8 +276,8 @@ def main():
         entry = history_manager.get(app_name)
         if entry:
             status = entry.get("status")
-            # Migrated is a permanent lock
-            if status.startswith("migrated"):
+            # Migrated is a permanent lock (dry-run results never lock)
+            if history_manager.is_migrated(app_name):
                 continue
 
             # Others depend on flags
@@ -270,9 +291,18 @@ def main():
     if already_managed and not args.app:
         type_text(f"Skipping {already_managed} apps already managed by Homebrew\n")
 
+    cask_tokens = list_all_casks() if apps_to_process else []
+
     try:
         for app_name in apps_to_process:
-            process_app(app_name, history_manager, batch_mode=args.batch, dry_run=args.dry_run)
+            process_app(
+                app_name,
+                history_manager,
+                cask_tokens=cask_tokens,
+                app_dir=app_dirs[app_name],
+                batch_mode=args.batch,
+                dry_run=args.dry_run,
+            )
 
     except KeyboardInterrupt:
         retro_print("\n\n!!! INTERRUPT SIGNAL RECEIVED !!!", RED)
@@ -304,7 +334,10 @@ def main():
             for entry in ignored:
                 retro_print(f"  - {entry}")
 
-        retro_print("\nHistory file updated. Goodbye.", CYAN)
+        if args.dry_run:
+            retro_print("\nDry run complete. History file untouched. Goodbye.", CYAN)
+        else:
+            retro_print("\nHistory file updated. Goodbye.", CYAN)
 
 
 if __name__ == "__main__":

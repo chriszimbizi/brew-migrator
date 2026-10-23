@@ -81,14 +81,14 @@ brew-migrator [OPTIONS]
 
 ### Options
 
-- `--dry-run`: **(Highly Recommended)** Simulate the migration without making any changes.
-- `--list-apps`: List all applications found in your `/Applications` folder.
+- `--dry-run`: **(Highly Recommended)** Simulate the migration without installing anything or writing to the history file.
+- `--list-apps`: List all applications found in `/Applications` and `~/Applications`.
 - `--list-pending`: List applications not yet managed by Homebrew (apps already installed as casks are skipped automatically).
 - `--list-installed`: List all applications successfully migrated to Homebrew.
 - `--list-skipped`: List all applications currently in the skipped history.
 - `--list-ignored`: List all applications explicitly marked as ignored.
 - `--app "AppName"`: Process a specific application by name.
-- `--batch`: Run in batch mode (automatically install the top match).
+- `--batch`: Run in batch mode. Installs only casks whose name exactly matches the app (e.g. `Visual Studio Code` → `visual-studio-code`); other apps are skipped for review with `--retry-skipped`.
 - `--retry-skipped`: Retry apps that were previously skipped.
 - `--retry-ignored`: Re-process apps that were previously marked as ignored.
 - `--reset-history`: Clear the migration history file.
@@ -115,9 +115,9 @@ brew-migrator --batch
 
 ## How it Works
 
-1. **Scan**: The tool looks at everything in your `/Applications` folder.
-2. **Search**: It asks Homebrew if there's a corresponding "Cask" for each app.
-3. **Selection**: You choose the correct match from a list (or let Batch Mode handle it).
+1. **Scan**: The tool looks at everything in `/Applications` and `~/Applications`, skipping apps already installed as Homebrew Casks.
+2. **Search**: It loads the Homebrew Cask index once and finds matching Casks for each app, best match first.
+3. **Selection**: You choose the correct match from a list (or let Batch Mode install exact matches).
 4. **Log**: The tool records the migration in a JSON history file to prevent double-work.
 
 ## Project Structure
@@ -127,15 +127,18 @@ brew-migrator --batch
 ├── LICENSE
 ├── README.md
 ├── pyproject.toml
-└── src
-    └── brew_migrator
-        ├── cli.py
-        ├── core
-        │   ├── brew.py
-        │   └── history.py
-        └── ui
-            └── console.py
+├── src
+│   └── brew_migrator
+│       ├── cli.py
+│       ├── core
+│       │   ├── brew.py
+│       │   └── history.py
+│       └── ui
+│           └── console.py
+└── tests
 ```
+
+Run the tests with `pip install -e ".[dev]" && pytest`.
 
 ## Contributing
 

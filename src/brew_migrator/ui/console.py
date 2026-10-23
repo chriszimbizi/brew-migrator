@@ -1,7 +1,10 @@
 import os
 import sys
 import time
+import shutil
 import threading
+
+from .. import __version__
 
 # ANSI color codes
 GREEN = "\033[32m"
@@ -11,9 +14,6 @@ RED = "\033[31m"
 RESET = "\033[0m"
 
 PAGE_SIZE = 5
-
-
-import shutil
 
 
 def display_retro_list(title, items, color=CYAN):
@@ -55,9 +55,10 @@ def display_retro_list(title, items, color=CYAN):
         retro_print(row_str)
     print()
 
-TITLE_ART = """
+_TITLE = "HOMEBREW APP MIGRATOR v" + __version__
+TITLE_ART = f"""
 ╔═════════════════════════════════╗
-║    HOMEBREW APP MIGRATOR v0.0.2 ║
+║{_TITLE.center(33)}║
 ╚═════════════════════════════════╝
 """
 

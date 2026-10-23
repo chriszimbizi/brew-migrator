@@ -21,6 +21,9 @@ classifiers = [
     "Topic :: Utilities",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest"]
+
 [project.urls]
 Homepage = "https://github.com/chriszimbizi/brew-migrator"
 Repository = "https://github.com/chriszimbizi/brew-migrator"
@@ -32,3 +35,7 @@ brew-migrator = "brew_migrator.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
