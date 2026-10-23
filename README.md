@@ -83,6 +83,7 @@ brew-migrator [OPTIONS]
 
 - `--dry-run`: **(Highly Recommended)** Simulate the migration without making any changes.
 - `--list-apps`: List all applications found in your `/Applications` folder.
+- `--list-pending`: List applications not yet managed by Homebrew (apps already installed as casks are skipped automatically).
 - `--list-installed`: List all applications successfully migrated to Homebrew.
 - `--list-skipped`: List all applications currently in the skipped history.
 - `--list-ignored`: List all applications explicitly marked as ignored.

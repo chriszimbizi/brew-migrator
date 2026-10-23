@@ -9,7 +9,8 @@ from .ui.console import (
 )
 from .core.history import HistoryManager, HISTORY_PATH
 from .core.brew import (
-    find_matches, is_already_installed, install_homebrew_package, check_brew_installed
+    find_matches, is_already_installed, install_homebrew_package, check_brew_installed,
+    get_installed_cask_apps
 )
 
 APPLICATIONS_FOLDER = "/Applications"
@@ -124,6 +125,11 @@ def main():
         help="List all applications found in /Applications.",
     )
     parser.add_argument(
+        "--list-pending",
+        action="store_true",
+        help="List applications not yet managed by Homebrew.",
+    )
+    parser.add_argument(
         "--app", type=str, help="Process a specific application by name."
     )
     parser.add_argument(
@@ -167,7 +173,7 @@ def main():
     args = parser.parse_args()
 
     # Detect listing commands to skip intro
-    listing_requested = any([args.list_apps, args.list_skipped, args.list_ignored, getattr(args, 'list_installed', False)])
+    listing_requested = any([args.list_apps, args.list_pending, args.list_skipped, args.list_ignored, args.list_installed])
 
     if not listing_requested:
         # Initial screen setup
@@ -208,6 +214,14 @@ def main():
         display_retro_list("Applications in /Applications", app_names, CYAN)
         return
 
+    # Apps already installed via a cask need no migration, whether or not this tool did it
+    managed_apps = get_installed_cask_apps()
+
+    if args.list_pending:
+        pending_apps = [app for app in app_names if app not in managed_apps]
+        display_retro_list("Applications not managed by Homebrew", pending_apps, CYAN)
+        return
+
     if args.list_skipped:
         skipped_apps = history_manager.get_skipped()
         display_retro_list("Applications in SKIPPED history", skipped_apps, YELLOW)
@@ -226,8 +240,16 @@ def main():
     apps_to_process = []
     initial_state_history = history_manager.copy_history()
 
+    already_managed = 0
+
     for app_name in app_names:
         if args.app and app_name != args.app:
+            continue
+
+        if app_name in managed_apps:
+            already_managed += 1
+            if args.app:
+                retro_print(f"{app_name} IS ALREADY MANAGED BY HOMEBREW ({managed_apps[app_name]}).", GREEN)
             continue
 
         entry = history_manager.get(app_name)
@@ -244,6 +266,9 @@ def main():
                 continue
 
         apps_to_process.append(app_name)
+
+    if already_managed and not args.app:
+        type_text(f"Skipping {already_managed} apps already managed by Homebrew\n")
 
     try:
         for app_name in apps_to_process:

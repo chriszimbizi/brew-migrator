@@ -1,5 +1,38 @@
+import os
+import json
 import subprocess
 from ..ui.console import retro_print, RED, ProgressBar
+
+
+def parse_installed_cask_apps(casks):
+    """Map .app names (without extension) to cask tokens from `brew info --json=v2` cask entries."""
+    apps = {}
+    for cask in casks:
+        token = cask.get("token")
+        for artifact in cask.get("artifacts", []):
+            if not isinstance(artifact, dict) or "app" not in artifact:
+                continue
+            for entry in artifact["app"]:
+                # Entries are either "Foo.app" or {"target": "Bar.app"} for renamed installs
+                name = entry.get("target") if isinstance(entry, dict) else entry
+                if isinstance(name, str) and name.endswith(".app"):
+                    apps[os.path.splitext(os.path.basename(name))[0]] = token
+    return apps
+
+
+def get_installed_cask_apps():
+    """Return {app_name: cask_token} for every app installed via a Homebrew cask."""
+    try:
+        result = subprocess.run(
+            ["brew", "info", "--cask", "--json=v2", "--installed"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+        )
+        return parse_installed_cask_apps(json.loads(result.stdout).get("casks", []))
+    except (OSError, subprocess.CalledProcessError, ValueError) as e:
+        retro_print(f"WARNING: Could not read installed casks: {e}", RED)
+        return {}
 
 
 def find_matches(app_name, search_type):
