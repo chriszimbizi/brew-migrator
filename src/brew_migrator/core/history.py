@@ -97,7 +97,7 @@ class HistoryManager:
                 if status == initial_status:
                     is_new = False
 
-            if status.startswith("migrated") and is_new:
+            if status == "migrated" and is_new:
                 newly_migrated.append(f"{app} -> {detail}")
             elif status == "failed":
                 failed.append(f"{app}: {detail}")
